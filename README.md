@@ -26,10 +26,11 @@ let squares = _.map([3, 6, 12], function(i){ return i*i; }));
 
 `n4x` loads Node.JS modules as if they were standard JavaScript
 scripts. Many modules, however, make use of other modules that are
-provided by the Node.JS environment, such as ``fs`` and ``util``. In
-order to provide that functionality, an adapter for each of those
-system modules must be created. Here is a summary of that effort for
-each of the system modules for Node.JS version 0.8.17:
+provided by the Node.JS environment, such as ``fs`` and ``util``, and
+therefore cannot be loaded by XPCOM. In order to provide that
+functionality, an adapter for each of those system modules must be
+created. Here is a summary of that effort for each of the system
+modules for Node.JS version 0.8.17:
 
 Module        | Support | Module  | Support | Module         | Support | Module | Support
 ------------- | ------- | ------- | ------- | -------------- | ------- | ------ | -------
