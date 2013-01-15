@@ -15,7 +15,7 @@ For example, the following makes use of `underscore`:
 
 ``` js
 Components.utils.import("resource://n4x/modules/nodejs.jsm");
-let require = nodejs.make_require(__LOCATION__.path, [__LOCATION__.parent.parent.path]);
+let require = nodejs.make_require(__LOCATION__);
 let _ = require('underscore');
 let squares = _.map([3, 6, 12], function(i){ return i*i; }));
 // resurt: squares == [9, 36, 144]

@@ -13,9 +13,6 @@
 Components.utils.import("resource:///modules/XPCOMUtils.jsm");
 Components.utils.import("resource://gre/modules/NetUtil.jsm");
 
-// todo: remove this... (it's only being used for cal.LOG...)
-Components.utils.import("resource://calendar/modules/calUtils.jsm");
-
 EXPORTED_SYMBOLS = ['nodejs'];
 
 //-----------------------------------------------------------------------------
@@ -26,20 +23,21 @@ const console = (function() {
 })();
 
 // TODO: for some silly reason, the gre's console.log truncates lines
-//       to 80 characters... so, working around that.
+//       to 80 characters... so, wrapping to working around that.
 console._log = console.log;
 console.log = function(msg) {
-  cal.LOG(msg);
-  // if ( ! msg || ! msg.length || msg.length <= 80 || msg.charAt(79) == '\\' )
-  //   return console._log(msg);
-  // console._log(msg.substr(0, 79) + '\\');
-  // console.log('  ' + msg.substr(79));
+  if ( ! msg || ! msg.length || msg.length <= 80 || msg.charAt(79) == '\\' )
+    return console._log(msg);
+  console._log(msg.substr(0, 79) + '\\');
+  console.log('  ' + msg.substr(79));
 };
 
 //-----------------------------------------------------------------------------
-// this is just for shits-and-giggles
 let nodejs = {
-  console: console
+  console: console,
+  get syslib() {
+    return __LOCATION__.parent.parent.path + '/nodejs_modules';
+  }
 };
 
 //-----------------------------------------------------------------------------
@@ -52,16 +50,21 @@ function getApi(id, iface)
   {
     // accounting for this *idiotic* interface "creation"...
     iface = id;
-    if ( iface === Components.interfaces.nsIFileInputStream )
-      id = '@mozilla.org/network/file-input-stream;1';
-    else if ( iface === Components.interfaces.nsIScriptableInputStream)
-      id = '@mozilla.org/scriptableinputstream;1';
-    else if ( iface === Components.interfaces.nsIIOService2 )
-      id = '@mozilla.org/network/io-service;1';
-    else if ( iface === Components.interfaces.nsILocalFile )
-      id = '@mozilla.org/file/local;1';
-    else if ( iface === Components.interfaces.mozIJSSubScriptLoader )
-      id = '@mozilla.org/moz/jssubscript-loader;1';
+    switch ( iface )
+    {
+      case Components.interfaces.nsIFileInputStream:
+        id = '@mozilla.org/network/file-input-stream;1'; break;
+      case Components.interfaces.nsIScriptableInputStream:
+        id = '@mozilla.org/scriptableinputstream;1'; break;
+      case Components.interfaces.nsIIOService2:
+        id = '@mozilla.org/network/io-service;1'; break;
+      case Components.interfaces.nsILocalFile:
+        id = '@mozilla.org/file/local;1'; break;
+      case Components.interfaces.mozIJSSubScriptLoader:
+        id = '@mozilla.org/moz/jssubscript-loader;1'; break;
+      default:
+        throw 'Unknown interface requested for `getApi`: ' + iface;
+    }
   }
   return Components.classes[id].createInstance(iface);
 }
@@ -70,20 +73,36 @@ function getApi(id, iface)
 let cacheModules = {};
 
 //-----------------------------------------------------------------------------
-function injectCompatibilityModules(libdirs) {
-  if ( libdirs[libdirs.length - 1].match(/\/nodejs_modules$/) )
-    return libdirs;
-  let ret = libdirs.slice(0);
-  ret.push(__LOCATION__.parent.parent.path + '/nodejs_modules');
-  return ret;
+function _find_libdir(path) {
+  let trypath = path.clone();
+  trypath.appendRelativePath('node_modules')
+  if ( trypath.exists() && trypath.isDirectory() )
+    return trypath.path;
+  if ( ! path.parent )
+    return null;
+  return _find_libdir(path.parent);
+}
+
+//-----------------------------------------------------------------------------
+function make_libdirs(path) {
+  let libdir = _find_libdir(path);
+  if ( ! libdir )
+    // todo: is there a more appropriate "default" 
+    libdir = path.parent.path;
+  return [libdir, nodejs.syslib];
 }
 
 //-----------------------------------------------------------------------------
 nodejs.make_require = function(curpath, libdirs, indent)
 {
+  if ( typeof(curpath) != 'string' )
+  {
+    if ( ! libdirs )
+      libdirs = make_libdirs(curpath);
+    curpath = curpath.path;
+  }
   if ( ! indent )
     indent = '  ';
-  libdirs = injectCompatibilityModules(libdirs);
   let scope   = {};
   let define  = nodejs.make_define(curpath, libdirs, scope, false, indent + '  ');
   let require = function(lib) {
@@ -92,7 +111,6 @@ nodejs.make_require = function(curpath, libdirs, indent)
     try{
       let ret = null;
       define(null, [lib], function(dlib) {
-        // console.log('  POST-DEFINE[' + lib + ']: ' + dlib);
         ret = dlib;
       });
       return ret;
@@ -143,9 +161,14 @@ function readFile(fileObject, async, cb)
 //-----------------------------------------------------------------------------
 nodejs.make_define = function(curpath, libdirs, scope, async, indent)
 {
+  if ( typeof(curpath) != 'string' )
+  {
+    if ( ! libdirs )
+      libdirs = make_libdirs(curpath);
+    curpath = curpath.path;
+  }
   if ( ! indent )
     indent = '  ';
-  libdirs = injectCompatibilityModules(libdirs);
 
   //---------------------------------------------------------------------------
   let _loadScript = function(path, curlibdirs, cb) {
