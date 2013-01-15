@@ -33,7 +33,6 @@ each of the system modules for Node.JS version 0.8.17:
 
 Module            | Support | Module            | Support | Module            | Support
 ----------------- | ------- | ----------------- | ------- | ----------------- | -------
-
 assert            | 20%     | https             | 0%      | stdio             | 10%
 buffer            | 0%      | modules           | 0%      | stream            | 0% 
 child_process     | 0%      | net               | 0%      | string_decoder    | 0% 
