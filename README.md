@@ -19,7 +19,7 @@ Components.utils.import("resource://n4x/modules/nodejs.jsm");
 let require = nodejs.make_require(__LOCATION__);
 let _ = require('underscore');
 let squares = _.map([3, 6, 12], function(i){ return i*i; }));
-// resurt: squares == [9, 36, 144]
+// result: squares == [9, 36, 144]
 ```
 
 ## Limitations
