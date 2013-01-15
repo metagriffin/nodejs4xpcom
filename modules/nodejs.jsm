@@ -183,6 +183,26 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
     scope.__filename = path;
     scope.__dirname  = file.parent.path;
     scope.process    = {env: {}};
+
+    // TODO: support the other global objects as well:
+    //   - global
+    //   - process
+    //   - console
+    //   - Class: Buffer
+    //   - require()
+    //   - require.resolve()
+    //   -     require.cache
+    //   -     require.extensions
+    //   - __filename
+    //   - __dirname
+    //   - module
+    //   - exports
+    // and from `timers`:
+    //   - setTimeout(cb, ms)
+    //   - clearTimeout(t)
+    //   - setInterval(cb, ms)
+    //   - clearInterval(t)
+
     scope.console    = console;
     scope.exports    = {};
     scope.module     = {exports: {}};
