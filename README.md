@@ -30,7 +30,12 @@ order to provide that functionality, an adapter for each of those
 system modules must be created. Here is a summary of that effort for
 each of the system modules for Node.JS version 0.8.17:
 
-* assert: 20%
+
+Module         | Support
+-------------- | -------
+assert         | 20%
+
+
 * buffer: 0%
 * child_process: 0%
 * cluster: 0%
