@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+ | This Source Code Form is subject to the terms of the Mozilla Public
+ | License, v. 2.0. If a copy of the MPL was not distributed with this
+ | file, You can obtain one at http://mozilla.org/MPL/2.0/.
+ | Portions Copyright (C) Philipp Kewisch, 2012
+ | Those portions added by metagriffin carry absolutely no copyright.
+ +-->
+<RDF
+ xmlns="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+ xmlns:em="http://www.mozilla.org/2004/em-rdf#"
+ >
+ <Description about="urn:mozilla:install-manifest">
+
+  <em:id>{0081de01-1f69-4171-8cac-cbcb84e7b3af}</em:id>
+  <em:version>0.0.1</em:version>
+  <em:type>2</em:type>
+
+  <!-- TODO: how to declare support for any XPCOM application? -->
+  <em:targetApplication>
+   <Description>
+    <!-- Thunderbird -->
+    <em:id>{3550f703-e582-4d05-9a08-453d09bdfdc6}</em:id>
+    <em:minVersion>17.0</em:minVersion>
+    <em:maxVersion>99.*</em:maxVersion>
+   </Description>
+  </em:targetApplication>
+
+  <!-- Front End MetaData -->
+  <em:name>nodejs4xpcom</em:name>
+  <em:description>An XPCOM plugin (for Firefox, Thunderbird, etc) that provides an AMD-compatible Node.JS module loader.</em:description>
+  <em:creator>metagriffin</em:creator>
+  <em:homepageURL>https://github.com/metagriffin/nodejs4xpcom</em:homepageURL>
+  <em:iconURL>chrome://n4x/content/nodejs4xpcom.png</em:iconURL>
+ </Description>
+</RDF>
