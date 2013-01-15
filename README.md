@@ -31,19 +31,16 @@ order to provide that functionality, an adapter for each of those
 system modules must be created. Here is a summary of that effort for
 each of the system modules for Node.JS version 0.8.17:
 
-Module            | Support | Module            | Support | Module            | Support
------------------ | ------- | ----------------- | ------- | ----------------- | -------
-assert            | 20%     | https             | 0%      | stdio             | 10%
-buffer            | 0%      | modules           | 0%      | stream            | 0% 
-child_process     | 0%      | net               | 0%      | string_decoder    | 0% 
-cluster           | 0%      | os                | 0%      | tls               | 0% 
-crypto            | 0%      | path              | 0%      | tty               | 0% 
-dns               | 0%      | process           | 0%      | dgram             | 0% 
-domain            | 0%      | punycode          | 0%      | url               | 0% 
-events            | 0%      | querystring       | 0%      | util              | 0% 
-fs                | 0%      | readline          | 0%      | vm                | 0% 
-globals           | 10%     | repl              | 0%      | zlib              | 0% 
-http              | 0%      |                   |         |                   |
+Module        | Support | Module  | Support | Module         | Support | Module | Support
+------------- | ------- | ------- | ------- | -------------- | ------- | ------ | -------
+assert        | 20%     | fs      | 0%      | process        | 0%      | tls    | 0%
+buffer        | 0%      | globals | 10%     | punycode       | 0%      | tty    | 0%
+child_process | 0%      | http    | 0%      | querystring    | 0%      | dgram  | 0%
+cluster       | 0%      | https   | 0%      | readline       | 0%      | url    | 0%
+crypto        | 0%      | modules | 0%      | repl           | 0%      | util   | 0%
+dns           | 0%      | net     | 0%      | stdio          | 10%     | vm     | 0%
+domain        | 0%      | os      | 0%      | stream         | 0%      | zlib   | 0%
+events        | 0%      | path    | 0%      | string_decoder | 0%      |        |
 
 These adapter packages will be implemented on an as-needed by the
 maintainers basis; if you need one before we do, you are encouraged to
