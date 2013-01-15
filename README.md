@@ -41,7 +41,7 @@ dns               | 0%
 domain            | 0%
 events            | 0%
 fs                | 0%
-globals           | 0%
+globals           | 10%
 http              | 0%
 https             | 0%
 modules           | 0%
@@ -53,10 +53,9 @@ punycode          | 0%
 querystring       | 0%
 readline          | 0%
 repl              | 0%
-stdio             | 0%
+stdio             | 10%
 stream            | 0%
 string_decoder    | 0%
-timers            | 0%
 tls               | 0%
 tty               | 0%
 dgram             | 0%
