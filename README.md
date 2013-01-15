@@ -11,7 +11,8 @@ allow you to ``require`` or ``define`` dependencies to Node.JS modules
 that have been installed into the standard npm ``node_modules``
 directory.
 
-For example, the following makes use of `underscore`:
+For example, the following makes use of the
+[underscore](https://npmjs.org/package/underscore) module:
 
 ``` js
 Components.utils.import("resource://n4x/modules/nodejs.jsm");
