@@ -6,30 +6,30 @@
 // copy: (C) CopyLoose 2013 UberDev <hardcore@uberdev.org>, No Rights Reserved.
 //-----------------------------------------------------------------------------
 
-//-----------------------------------------------------------------------------
-// TODO: this module is *CRAZY*...
-//-----------------------------------------------------------------------------
+// TODO: when running in non-async mode, n4x should raise an exception
+//       if err != null...
 
+EXPORTED_SYMBOLS = ['nodejs'];
 Components.utils.import("resource:///modules/XPCOMUtils.jsm");
 Components.utils.import("resource://gre/modules/NetUtil.jsm");
 
-EXPORTED_SYMBOLS = ['nodejs'];
-
 //-----------------------------------------------------------------------------
-const console = (function() {
-  const tempScope = {};
-  Components.utils.import("resource://gre/modules/devtools/Console.jsm", tempScope);
-  return tempScope.console;
-})();
-
-// TODO: for some silly reason, the gre's console.log truncates lines
-//       to 80 characters... so, wrapping to working around that.
-console._log = console.log;
-console.log = function(msg) {
-  if ( ! msg || ! msg.length || msg.length <= 80 || msg.charAt(79) == '\\' )
-    return console._log(msg);
-  console._log(msg.substr(0, 79) + '\\');
-  console.log('  ' + msg.substr(79));
+const console = {
+  log: function(msg) {
+    try{ dump(msg + '\n'); }catch(e){}
+    try{ Components.classes["@mozilla.org/consoleservice;1"]
+         .getService(Components.interfaces.nsIConsoleService).logStringMessage(msg);
+       }catch(e){}
+  },
+  dir: function(obj) {
+    try{
+      let out = '{';
+      for ( let key in obj )
+        out += key + ': ' + obj[key] + ', ';
+      out += '}';
+      console.log(out);
+    }catch(e){}
+  }
 };
 
 //-----------------------------------------------------------------------------
@@ -48,7 +48,6 @@ function getApi(id, iface)
 {
   if ( ! iface )
   {
-    // accounting for this *idiotic* interface "creation"...
     iface = id;
     switch ( iface )
     {
@@ -62,6 +61,8 @@ function getApi(id, iface)
         id = '@mozilla.org/file/local;1'; break;
       case Components.interfaces.mozIJSSubScriptLoader:
         id = '@mozilla.org/moz/jssubscript-loader;1'; break;
+      case Components.interfaces.nsITimer:
+        id = '@mozilla.org/timer;1'; break;
       default:
         throw 'Unknown interface requested for `getApi`: ' + iface;
     }
@@ -70,7 +71,7 @@ function getApi(id, iface)
 }
 
 //-----------------------------------------------------------------------------
-let cacheModules = {};
+let cache = {modules: {}, scripts: {}};
 
 //-----------------------------------------------------------------------------
 function _find_libdir(path) {
@@ -93,18 +94,82 @@ function make_libdirs(path) {
 }
 
 //-----------------------------------------------------------------------------
-nodejs.make_require = function(curpath, libdirs, indent)
+function extend() {
+  let ret = arguments.length > 0 ? arguments[0] : {};
+  if ( ! ret )
+    ret = {};
+  for ( let idx=0 ; idx<arguments.length ; idx++ )
+  {
+    let item = arguments[idx];
+    for ( let key in item )
+      ret[key] = item[key];
+  }
+  return ret;
+}
+
+//-----------------------------------------------------------------------------
+function listconcat() {
+  let ret = [];
+  for ( let idx=0 ; idx<arguments.length ; idx++ )
+  {
+    let array = arguments[idx];
+    if ( ! array || ! array.length )
+      continue;
+    for ( let subidx=0 ; subidx<array.length ; subidx++ )
+      ret.push(array[subidx]);
+  }
+  return ret;
+};
+
+//-----------------------------------------------------------------------------
+nodejs.setTimeout = function(callback, time) {
+  // console.log('CALLED: nodejs.setTimeout');
+  var timer = getApi(Components.interfaces.nsITimer);
+  var event = {notify: callback};
+  timer.initWithCallback(event, time, Components.interfaces.nsITimer.TYPE_ONE_SHOT);
+  return timer;
+}
+
+//-----------------------------------------------------------------------------
+nodejs.clearTimeout = function(timer) {
+  // console.log('CALLED: nodejs.clearTimeout');
+  timer.cancel();
+}
+
+//-----------------------------------------------------------------------------
+nodejs.setInterval = function(callback, time) {
+  // console.log('CALLED: nodejs.setInterval');
+  var timer = getApi(Components.interfaces.nsITimer);
+  var event = {observe: callback};
+  timer.init(event, time, Components.interfaces.nsITimer.TYPE_REPEATING_PRECISE_CAN_SKIP);
+  return timer;
+}
+
+//-----------------------------------------------------------------------------
+nodejs.clearInterval = function(timer) {
+  // console.log('CALLED: nodejs.clearInterval');
+  timer.cancel();
+}
+
+//-----------------------------------------------------------------------------
+nodejs.make_require = function(curpath, options) // libdirs, indent
 {
+  options = extend({}, {
+    libdirs: null,
+    predirs: null,
+    indent:  '  '
+  }, options);
   if ( typeof(curpath) != 'string' )
   {
-    if ( ! libdirs )
-      libdirs = make_libdirs(curpath);
+    if ( ! options.libdirs )
+      options.libdirs = make_libdirs(curpath);
     curpath = curpath.path;
   }
-  if ( ! indent )
-    indent = '  ';
-  let scope   = {};
-  let define  = nodejs.make_define(curpath, libdirs, scope, false, indent + '  ');
+  let define  = nodejs.make_define(curpath, extend({}, options, {
+    scope:  {},
+    async:  false,
+    indent: options.indent + '  '
+  }));
   let require = function(lib) {
     // console.log('[n4x] REQUIRE: ' + lib + ' (from "' + curpath + '")');
     // console.log('AMD.R' + indent + lib);
@@ -159,19 +224,25 @@ function readFile(fileObject, async, cb)
 }
 
 //-----------------------------------------------------------------------------
-nodejs.make_define = function(curpath, libdirs, scope, async, indent)
+nodejs.make_define = function(curpath, options) // libdirs, scope, async, indent)
 {
+  options = extend({}, {
+    libdirs: null,
+    predirs: null,
+    scope:   null,
+    globals: null,
+    async:   null,
+    indent:  '  '
+  }, options);
   if ( typeof(curpath) != 'string' )
   {
-    if ( ! libdirs )
-      libdirs = make_libdirs(curpath);
+    if ( ! options.libdirs )
+      options.libdirs = make_libdirs(curpath);
     curpath = curpath.path;
   }
-  if ( ! indent )
-    indent = '  ';
 
   //---------------------------------------------------------------------------
-  let _loadScript = function(path, curlibdirs, cb) {
+  let _loadScript = function(path, curlibdirs, curpredirs, cb) {
     // console.log('loading script: "' + path + '" with libdirs "' + curlibdirs + '"');
 
     let scriptLoader = getApi(Components.interfaces.mozIJSSubScriptLoader);
@@ -181,7 +252,7 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
     let spec = ioService.newFileURI(file).spec;
 
     let wait   = false;
-    let scope  = {};
+    let scope  = extend({}, options.globals);
     let done   = function(err) {
       if ( err )
         return cb(err);
@@ -201,7 +272,12 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
       delete scope.define;
       return cb(null, retscope);
     };
-    let curdef = nodejs.make_define(path, curlibdirs, scope, async, indent + '  ');
+    let curdef = nodejs.make_define(path, extend({}, options, {
+      libdirs: curlibdirs,
+      predirs: curpredirs,
+      scope:   scope,
+      indent:  options.indent + '  '
+    }));
 
     scope.__filename = path;
     scope.__dirname  = file.parent.path;
@@ -226,10 +302,28 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
     //   - setInterval(cb, ms)
     //   - clearInterval(t)
 
+    // <TODO> added for jasmine-node... is there a better way???
+    // TODO: these should only be set conditionally...
+    // TODO: not sure why i need to set these... i thought `scope`
+    //       *was* the global object...
+    if ( ! this.setTimeout || ! this.clearTimeout || ! this.setInterval || ! this.clearInterval )
+    {
+      this.setTimeout    = scope.setTimeout    = nodejs.setTimeout;
+      this.clearTimeout  = scope.clearTimeout  = nodejs.clearTimeout;
+      this.setInterval   = scope.setInterval   = nodejs.setInterval;
+      this.clearInterval = scope.clearInterval = nodejs.clearInterval;
+    }
+    // </TODO>
+
     scope.console    = console;
     scope.exports    = {};
     scope.module     = {exports: {}};
-    scope.require    = nodejs.make_require(path, curlibdirs, indent + '  ');
+    scope.require    = nodejs.make_require(path, extend({}, options, {
+      libdirs: curlibdirs,
+      predirs: curpredirs,
+      scope:   null,
+      indent:  options.indent + '  '
+    }));
     scope.define     = function() {
       if ( wait )
         // only support one `define` call per script
@@ -243,7 +337,9 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
     };
 
     try {
-      scriptLoader.loadSubScript(spec, scope);
+      // todo: probably want to switch to Components.utils.import, see:
+      //         https://developer.mozilla.org/en-US/docs/Components.utils.import
+      scriptLoader.loadSubScript(spec, scope, 'UTF-8');
       if ( ! wait )
         return done();
       return;
@@ -255,15 +351,39 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
   };
 
   //---------------------------------------------------------------------------
-  let loadScript = function(path, curlibdirs, cb) {
+  let _cacheScript = function(path, curlibdirs, curpredirs, cb) {
+    // todo: collapse '../DIR' to '.' first...
+    path = path.replace(/\/\.\//g, '/');
+    // todo: global script caching seems like a bad idea...
+    if ( cache.scripts[path] )
+    {
+      // console.log('[  ] returning cached script: ' + path);
+      return cb(null, cache.scripts[path]);
+    }
+    // console.log('[  ] loading cacheable script: ' + path);
+    return _loadScript(path, curlibdirs, curpredirs, function(err, ret) {
+      if ( err )
+        return cb(err);
+      if ( ! cache.scripts[path] )
+        cache.scripts[path] = ret;
+      return cb(null, ret);
+    });
+  };
+
+  //---------------------------------------------------------------------------
+  let loadScript = function(path, curlibdirs, curpredirs, cb) {
     let file = getApi(Components.interfaces.nsILocalFile);
     file.initWithPath(path);
     if ( file.exists() && file.isDirectory() )
-      return _loadScript(path + '/index.js', curlibdirs, cb);
-    // todo: only do this if there is a ENOENT error...
+    {
+      let idxfile = file.clone();
+      idxfile.appendRelativePath('index.js');
+      if ( idxfile.exists() ) // && idxfile.isFile() )
+        return _cacheScript(path + '/index.js', curlibdirs, curpredirs, cb);
+    }
     if ( ! path.match(/\.(js|jsm)$/) )
       path += '.js';
-    return _loadScript(path, curlibdirs, cb);
+    return _cacheScript(path, curlibdirs, curpredirs, cb);
   };
 
   //---------------------------------------------------------------------------
@@ -273,14 +393,14 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
       _loadDependency(lib, function(err, mod) {
         if ( err )
         {
-          console.log('AMD.L' + indent + lib + ': error ' + err);
+          console.log('AMD.L' + options.indent + lib + ': error ' + err);
           return cb(err);
         }
-        // console.log('AMD.L' + indent + lib + ': ok');
+        // console.log('AMD.L' + options.indent + lib + ': ok');
         return cb(null, mod);
       });
     }catch(e){
-      console.log('AMD.L' + indent + lib + ': exception ' + e);
+      console.log('AMD.L' + options.indent + lib + ': exception ' + e);
       throw e;
     }
   };
@@ -301,21 +421,22 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
       file.initWithPath(curpath);
       file = file.parent;
       file.appendRelativePath(lib);
-      return loadScript(file.path, libdirs, cb);
+      return loadScript(file.path, options.libdirs, options.predirs, cb);
     }
-    if ( cacheModules[lib] )
+    if ( cache.modules[lib] )
     {
       // console.log('[  ] returning cached module: ' + lib);
-      return cb(null, cacheModules[lib]);
+      return cb(null, cache.modules[lib]);
     }
     let handled = false;
     let pkgfiles = [
       'node_modules/' + lib + '/package.json',
       lib + '/package.json'
     ];
-    for ( var lidx=0 ; lidx<libdirs.length ; lidx++ )
+    let deplibdirs = listconcat(options.predirs, options.libdirs);
+    for ( let lidx=0 ; lidx<deplibdirs.length ; lidx++ )
     {
-      for ( var pidx=0 ; pidx<pkgfiles.length ; pidx++ )
+      for ( let pidx=0 ; pidx<pkgfiles.length ; pidx++ )
       {
         if ( handled )
           return;
@@ -323,7 +444,7 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
         // TODO: go through a whole cascading of attempts if package.json
         //       does not exist or does not define a "main"...
         let file = getApi(Components.interfaces.nsILocalFile);
-        file.initWithPath(libdirs[lidx]);
+        file.initWithPath(deplibdirs[lidx]);
         file.appendRelativePath(pkgfiles[pidx]);
         if ( ! file.exists() )
         {
@@ -348,13 +469,13 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
             return cb('no "main" attribute in package definition: ' + file.path);
           let mainfile = file.parent.clone();
           mainfile.appendRelativePath(data.main);
-          let pkglibdirs = libdirs.slice(0);
+          let pkglibdirs = options.libdirs.slice(0);
           pkglibdirs.unshift(file.parent.path);
-          return loadScript(mainfile.path, pkglibdirs, function(err, mod) {
+          return loadScript(mainfile.path, pkglibdirs, options.predirs, function(err, mod) {
             if ( err )
               return cb(err);
-            if ( ! cacheModules[lib] )
-              cacheModules[lib] = mod;
+            if ( ! cache.modules[lib] )
+              cache.modules[lib] = mod;
             return cb(null, mod);
           });
         });
@@ -376,7 +497,7 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
       id      = undefined;
     }
 
-    // console.log('AMD.D' + indent + JSON.stringify(deps));
+    // console.log('AMD.D' + options.indent + JSON.stringify(deps));
 
     if ( ! cb )
       cb = function(){};
@@ -386,7 +507,7 @@ nodejs.make_define = function(curpath, libdirs, scope, async, indent)
     let runfactory = function() {
       let lib = factory.apply(null, libs);
       for ( let key in lib )
-        scope[key] = lib[key];
+        options.scope[key] = lib[key];
       return cb();
     };
     let rundone = function(err, mod, depidx) {
