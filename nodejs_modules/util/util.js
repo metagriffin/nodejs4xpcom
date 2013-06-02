@@ -40,20 +40,29 @@ exports.inherits = function(kls, baseKls) {
 
 //-----------------------------------------------------------------------------
 
-exports._notImplemented = function() { throw 'TODO ::: `url` bridge incomplete'; };
+exports._notImplemented = function(name) {
+  return function() {
+    throw 'TODO ::: `util` bridge incomplete (function "' + name + '")';
+  };
+};
 
-exports.format      = exports._notImplemented;
-exports.debug       = exports._notImplemented;
-exports.error       = exports._notImplemented;
-exports.puts        = exports._notImplemented;
-exports.print       = exports._notImplemented;
-exports.log         = exports._notImplemented;
-exports.inspect     = exports._notImplemented;
-exports.isArray     = exports._notImplemented;
-exports.isRegExp    = exports._notImplemented;
-exports.isDate      = exports._notImplemented;
-exports.isError     = exports._notImplemented;
-exports.pump        = exports._notImplemented;
+exports.format      = exports._notImplemented("format");
+exports.debug       = exports._notImplemented("debug");
+exports.error       = exports._notImplemented("error");
+exports.puts        = exports._notImplemented("puts");
+exports.log         = exports._notImplemented("log");
+exports.inspect     = exports._notImplemented("inspect");
+exports.isArray     = exports._notImplemented("isArray");
+exports.isRegExp    = exports._notImplemented("isRegExp");
+exports.isDate      = exports._notImplemented("isDate");
+exports.isError     = exports._notImplemented("isError");
+exports.pump        = exports._notImplemented("pump");
+
+//-----------------------------------------------------------------------------
+exports.print = function(msg) {
+  dump(msg);
+};
+
 
 //-----------------------------------------------------------------------------
 // end of $Id$

@@ -19,11 +19,15 @@ console.log('[**] TODO ::: implement "url" node.js compatibility bridge');
 
 //-----------------------------------------------------------------------------
 
-exports._notImplemented = function() { throw 'TODO ::: `url` bridge incomplete'; };
+exports._notImplemented = function(name) {
+  return function() {
+    throw 'TODO ::: `url` bridge incomplete (function "' + name + '")';
+  };
+};
 
-exports.parse     = exports._notImplemented;
-exports.format    = exports._notImplemented;
-exports.resolve   = exports._notImplemented;
+exports.parse     = exports._notImplemented("parse");
+exports.format    = exports._notImplemented("format");
+exports.resolve   = exports._notImplemented("resolve");
 
 //-----------------------------------------------------------------------------
 // end of $Id$
