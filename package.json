@@ -1,7 +1,7 @@
 {
   "name":           "nodejs4xpcom",
   "description":    "An XPCOM plugin (for Firefox, Thunderbird, etc) that provides an AMD-compatible Node.JS module loader",
-  "version":        "0.0.1",
+  "version":        "0.0.2",
   "author":         "metagriffin <mg.npmjs@uberdev.org>",
   "homepage":       "https://github.com/metagriffin/nodejs4xpcom/",
   "repository": {
