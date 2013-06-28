@@ -4,6 +4,10 @@
   "version":        "0.0.2",
   "author":         "metagriffin <mg.npmjs@uberdev.org>",
   "homepage":       "https://github.com/metagriffin/nodejs4xpcom/",
+  "licenses": [{
+    "type":           "MIT",
+    "url":            "http://opensource.org/licenses/MIT"
+  }],
   "repository": {
     "type": "git",
     "url":  "git://github.com/metagriffin/nodejs4xpcom.git"
